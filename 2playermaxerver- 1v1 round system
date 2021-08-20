@@ -1,0 +1,314 @@
+	
+
+local wins = {}
+local names = {}
+local inven = {}
+local teleporter = {"Teleporter1","Teleporter2"}
+local respectiveteleporters = {}
+local propTele1 = script:GetCustomProperty("Tele1"):WaitForObject()
+local propTele2 = script:GetCustomProperty("Tele2"):WaitForObject()
+local propWeapon = script:GetCustomProperty("Weapon")
+local trigger = true
+local startingnum = 0
+local spawns = nil
+local deaths = nil
+
+function amountofplayers()
+	local playerlist = Game.GetPlayers()
+	local num = 0
+	
+	for _, i in ipairs(playerlist) do
+		num = num + 1
+	end
+	return num
+end
+
+
+--Going to make an event for when a player dies to then startnew round.
+--teleport(),addweapons()
+--find the person that died, then give the win to the other player.
+--It checks whether any player reached three wins beforehand then it ends the round
+--In which Game.EndRound() is set
+
+
+
+function teleport(player,state,ints)
+	--for _, i in ipairs(Game:GetPlayers()) do 
+	if state == true then
+		if respectiveteleporters[player.name] == nil then
+						
+			
+			respectiveteleporters[player.name] = teleporter[ints]
+			if respectiveteleporters[player.name] == "Teleporter1" then
+
+				local posog = propTele1:FindChildByName("Cuby")
+				player:Spawn({position = posog:GetPosition()})
+				player:SetWorldPosition(posog:GetPosition())
+			end
+			if respectiveteleporters[player.name] == "Teleporter2" then
+
+				local posog2 = propTele2:FindChildByName("Cube")
+				player:Spawn({position = posog2:GetPosition()})
+				player:SetWorldPosition(posog2:GetPosition())
+			end
+		end
+	end 
+	
+	if state == false then
+		if respectiveteleporters[player.name] == "Teleporter1" then
+			local posog = propTele1:FindChildByName("Cuby")
+			player:Spawn({position = posog:GetPosition()})
+			
+		elseif respectiveteleporters[player.name] == "Teleporter2" then
+			local posog2 = propTele2:FindChildByName("Cube")
+			player:Spawn({position = posog2:GetPosition()})
+			 
+		end
+	
+	end
+	
+	return
+	
+	
+end
+
+function addweapons()
+	for _, i in ipairs(Game.GetPlayers()) do
+	
+		inven[i] = World.SpawnAsset(propWeapon)
+		assert(inven[i]:IsA("Equipment"))
+		
+		if i then 
+			inven[i]:Equip(i)
+		end
+		
+	end
+	--return
+end
+
+function removeweapons()
+
+	for _, i in ipairs(Game:GetPlayers()) do
+		if inven[i] and inven[i]:IsValid() then
+			inven[i]:Unequip()
+			
+			if inven[i]:IsValid() then
+				inven[i]:Destroy()
+			end
+			
+			inven[i] = nil
+		
+		end
+	end
+	return
+end
+
+function announcewinner()
+	Game.EndRound()
+end
+
+function start(state)
+	if state == true then
+		Task.Wait(30)
+		for _, i in ipairs(Game.GetPlayers()) do
+			local name = i.name
+			wins[name] = 0
+			teleport(i,false)
+		end
+		addweapons()
+	end	
+	
+	if state == false then
+		Task.Wait(10)
+		removeweapons()
+		for _, i in ipairs(Game.GetPlayers()) do 
+			teleport(i,false)
+		end
+		addweapons()
+		trigger = true
+		return trigger
+		
+	end
+	
+	return
+	
+end
+
+function ended()
+	--Going to teleport players back to the original game.
+	
+	for _, i in ipairs(Game.GetPlayers()) do
+		if i and i:IsA("Player") then
+			print("Teleporting")
+	        --Will add the proper location of game i:TransferToGame("577d80/core-royale")
+	    end
+	end
+	
+	return
+end
+
+function checktruewinner(sta)
+
+	for _, i in ipairs(wins) do 
+		print("Wins:"..i)
+		if i == 3 then
+			print("REached 3")
+			sta = false
+			print(sta)
+			return sta
+		elseif i~=3 then
+			print("return true boi")
+			sta = true
+			print(sta)
+			return sta
+		end
+	end
+	
+	return
+
+end
+
+function remove(player,attacked)
+	for _, i in ipairs(names) do
+		if i ~= nil then
+			Task.Wait(3)
+			if i == player.name then
+				if state == false then
+					if attacked.IsDead then
+						return
+					else
+						i =  nil
+						return names
+					end
+				end
+			end
+			--tasks:Stop()
+		end
+	end
+	
+	return
+end
+
+function giveplayerwin(player,state)
+
+	if state == true then
+		local attacker = names[player.name]
+		if attacker ~= nil then
+
+			
+			if wins[attacker] ~= nil then
+				wins[attacker] = wins[attacker] + 1
+			elseif wins[attacker] == nil then
+				wins[attacker] = 1
+				--wins[attacker] = wins[attacker] + 1
+			end
+			
+			
+			if wins[attacker] < 4 then
+				print("Yus")
+				print(wins[attacker])
+				
+				names[player.name] = nil
+				start(false)
+				
+			end
+			if wins[attacker] >= 3 then
+				print("Its over")
+				print(wins[attacker])
+				
+				names[player.name] = nil
+				announcewinner()
+			end
+		end
+		
+	
+	elseif state == false then
+		return
+	end		
+	
+	return
+
+end
+
+
+
+function giveplayerattack(player,attacked)
+	
+	names[attacked.name] = player.name
+	
+	--local time = Task.Spawn(function()
+	
+	--	remove(player,attacked)
+	--end)
+	
+	return
+
+end
+
+
+
+
+
+
+
+
+Task.Spawn(function()
+	while true do
+	Task.Wait(1)
+	for _, players in ipairs(Game:GetPlayers()) do
+	
+		deaths = players.diedEvent:Connect(function(playerdied)
+			--if trigger == true then
+				print("dead")
+				giveplayerwin(playerdied,true)
+				deaths:Disconnect()
+				--trigger = false
+				
+				--return trigger
+			--else
+				--return
+			--end
+		end)
+		end
+	
+	end
+end)
+
+Events.Connect("PlayerHit",giveplayerattack)
+Game.roundStartEvent:Connect(function()
+	start(true)
+	return 
+end)
+Game.roundEndEvent:Connect(ended)
+
+Game.playerJoinedEvent:Connect(function(player)
+	Task.Wait(2)
+	startingnum = startingnum + 1
+	
+	
+	local amount = amountofplayers()
+	
+	teleport(player,true,startingnum)
+	
+	if startingnum == 2 then 
+		startingnum = 0
+	end
+	
+	
+	if amount == 2 then
+		Game.StartRound()
+	else
+		print("Not Enough Players, must wait")
+	end
+
+end)
+
+Game.playerLeftEvent:Connect(function(player)
+
+	local amount = amountofplayers()
+	
+	
+	if amount < 2 then
+		giveplayerwin(player,false)
+	end
+end)
